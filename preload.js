@@ -1,15 +1,12 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  // スクリーンショット撮影
+  // Capture screenshot
   captureScreen: () => ipcRenderer.invoke('capture-screen'),
 
-  // ファイルを開く
+  // Open file
   openFile: () => ipcRenderer.invoke('open-file'),
 
-  // ファイルを保存
-  saveFile: (dataUrl) => ipcRenderer.invoke('save-file', dataUrl),
-
-  // 画像ファイルを読み込み
+  // Read image file
   readImage: (filePath) => ipcRenderer.invoke('read-image', filePath)
 });

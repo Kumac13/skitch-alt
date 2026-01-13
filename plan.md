@@ -1,0 +1,93 @@
+# Skitch代替アプリ設計プラン
+
+## 概要
+macOS向けスクリーンショット注釈アプリをElectron + Fabric.jsで作成
+
+## 実装ステップ
+
+### Phase 1: 画像読み込み基盤
+**目標:** 画像をキャンバスに表示できる状態にする
+
+1. ファイルを開く → 画像をキャンバスに表示
+2. スクリーンショット撮影 → 画像をキャンバスに表示
+
+**確認方法:**
+- 「ファイルを開く」→ 画像選択 → キャンバスに表示される
+- 「スクリーンショット撮影」→ 範囲選択 → キャンバスに表示される
+
+**現状:**
+- ファイルを開く: ✅ 動作確認済み
+- スクリーンショット: ✅ 動作確認済み（開発時はターミナルに画面収録権限が必要）
+
+**既知の問題:**
+- `pnpm start`で実行時、screencaptureは親プロセス（ターミナル）の権限で動く
+- ビルド後の.appでは、アプリ自体に権限が求められる（正常動作）
+
+---
+
+### Phase 2: 描画ツール（後で実装）
+- テキストツール
+- 矢印ツール
+- 矩形ツール
+- モザイクツール
+
+### Phase 3: 保存・その他（後で実装）
+- 画像保存
+- カラーピッカー
+- キーボードショートカット
+
+### Phase 4: ビルド（後で実装）
+- electron-builderでmacOSアプリ化
+
+## 主要な実装ポイント
+
+### スクリーンショット撮影
+```javascript
+const { exec } = require('child_process');
+const path = require('path');
+const os = require('os');
+
+function captureScreen() {
+  const tmpFile = path.join(os.tmpdir(), `screenshot-${Date.now()}.png`);
+  return new Promise((resolve, reject) => {
+    exec(`screencapture -i ${tmpFile}`, (error) => {
+      if (error) reject(error);
+      else resolve(tmpFile);
+    });
+  });
+}
+```
+
+### 矢印ツール（Fabric.js）
+```javascript
+function createArrow(points, color) {
+  const line = new fabric.Line(points, {
+    stroke: color,
+    strokeWidth: 3
+  });
+  // 三角形の矢印ヘッドを追加
+  const triangle = new fabric.Triangle({
+    width: 15,
+    height: 20,
+    fill: color,
+    // 位置と角度を計算
+  });
+  return new fabric.Group([line, triangle]);
+}
+```
+
+### モザイク処理
+```javascript
+function applyMosaic(canvas, rect, blockSize = 10) {
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(rect.x, rect.y, rect.width, rect.height);
+  // blockSizeごとに平均色を計算して塗りつぶし
+}
+```
+
+## 作成場所
+新規リポジトリとして `~/ghq/github.com/Kumac13/skitch-alt` に作成予定
+（リポジトリ名は変更可能）
+
+## 見積もり
+基本機能が動作するMVPまで、段階的に実装

@@ -3,90 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
   <title>Skitch Alt</title>
   <link rel="stylesheet" href="style.css">
+  <script src="fabric.min.js"></script>
 </head>
 <body>
   <div class="app-container">
-    <!-- ツールバー -->
+    <!-- Toolbar -->
     <div class="toolbar">
       <div class="toolbar-section">
-        <button class="tool-btn" id="btn-capture" title="スクリーンショット撮影">
+        <button class="tool-btn" id="btn-capture" title="Capture Screenshot">
           <svg viewBox="0 0 24 24" width="20" height="20">
             <path fill="currentColor" d="M4,4H7L9,2H15L17,4H20A2,2 0 0,1 22,6V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V6A2,2 0 0,1 4,4M12,7A5,5 0 0,0 7,12A5,5 0 0,0 12,17A5,5 0 0,0 17,12A5,5 0 0,0 12,7M12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9Z"/>
           </svg>
         </button>
-        <button class="tool-btn" id="btn-open" title="ファイルを開く">
+        <button class="tool-btn" id="btn-open" title="Open File">
           <svg viewBox="0 0 24 24" width="20" height="20">
             <path fill="currentColor" d="M19,20H4C2.89,20 2,19.1 2,18V6C2,4.89 2.89,4 4,4H10L12,6H19A2,2 0 0,1 21,8H21L4,8V18L6.14,10H23.21L20.93,18.5C20.7,19.37 19.92,20 19,20Z"/>
-          </svg>
-        </button>
-        <button class="tool-btn" id="btn-save" title="保存">
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path fill="currentColor" d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/>
-          </svg>
-        </button>
-      </div>
-
-      <div class="toolbar-divider"></div>
-
-      <div class="toolbar-section">
-        <button class="tool-btn" id="btn-select" title="選択ツール" data-tool="select">
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path fill="currentColor" d="M13.64,21.97C13.14,22.21 12.54,22 12.31,21.5L10.13,16.76L7.62,18.78C7.45,18.92 7.24,19 7,19A1,1 0 0,1 6,18V3A1,1 0 0,1 7,2C7.24,2 7.47,2.09 7.64,2.23L7.65,2.22L19.14,11.86C19.57,12.22 19.62,12.85 19.27,13.27C19.12,13.45 18.91,13.57 18.7,13.61L15.54,14.23L17.74,18.96C17.97,19.46 17.76,20.06 17.26,20.28L13.64,21.97Z"/>
-          </svg>
-        </button>
-        <button class="tool-btn" id="btn-arrow" title="矢印ツール" data-tool="arrow">
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path fill="currentColor" d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/>
-          </svg>
-        </button>
-        <button class="tool-btn" id="btn-text" title="テキストツール" data-tool="text">
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path fill="currentColor" d="M18.5,4L19.66,8.35L18.7,8.61C18.25,7.74 17.79,6.87 17.26,6.43C16.73,6 16.11,6 15.5,6H13V16.5C13,17 13,17.5 13.33,17.75C13.67,18 14.33,18 15,18V19H9V18C9.67,18 10.33,18 10.67,17.75C11,17.5 11,17 11,16.5V6H8.5C7.89,6 7.27,6 6.74,6.43C6.21,6.87 5.75,7.74 5.3,8.61L4.34,8.35L5.5,4H18.5Z"/>
-          </svg>
-        </button>
-        <button class="tool-btn" id="btn-rect" title="矩形ツール" data-tool="rect">
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path fill="currentColor" d="M4,6V19H20V6H4M18,17H6V8H18V17Z"/>
-          </svg>
-        </button>
-        <button class="tool-btn" id="btn-mosaic" title="モザイクツール" data-tool="mosaic">
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path fill="currentColor" d="M3,3H11V11H3V3M13,3H21V11H13V3M3,13H11V21H3V13M13,13H21V21H13V13M5,5V9H9V5H5M15,5V9H19V5H15M5,15V19H9V15H5M15,15V19H19V15H15Z"/>
-          </svg>
-        </button>
-      </div>
-
-      <div class="toolbar-divider"></div>
-
-      <div class="toolbar-section">
-        <div class="color-picker-wrapper">
-          <input type="color" id="color-picker" value="#ff0000" title="色を選択">
-          <span class="color-preview" id="color-preview"></span>
-        </div>
-      </div>
-
-      <div class="toolbar-spacer"></div>
-
-      <div class="toolbar-section">
-        <button class="tool-btn" id="btn-delete" title="削除">
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
           </svg>
         </button>
       </div>
     </div>
 
-    <!-- キャンバスエリア -->
-    <div class="canvas-container" id="canvas-container">
+    <!-- Canvas Area -->
+    <div class="editor-area" id="editor-area">
       <canvas id="canvas"></canvas>
       <div class="canvas-placeholder" id="canvas-placeholder">
-        <p>スクリーンショットを撮影するか、画像ファイルを開いてください</p>
+        <p>Capture a screenshot or open an image file</p>
         <div class="placeholder-buttons">
-          <button id="placeholder-capture">スクリーンショット撮影</button>
-          <button id="placeholder-open">ファイルを開く</button>
+          <button id="placeholder-capture">Capture Screenshot</button>
+          <button id="placeholder-open">Open File</button>
         </div>
       </div>
     </div>

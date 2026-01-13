@@ -22,6 +22,9 @@ function createWindow() {
   });
 
   mainWindow.loadFile('renderer/index.html');
+
+  // Open DevTools in development
+  mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(() => {
@@ -40,27 +43,26 @@ app.on('window-all-closed', () => {
   }
 });
 
-// スクリーンショット撮影
+// Capture screenshot
 ipcMain.handle('capture-screen', async () => {
+  console.log('[main] capture-screen: start');
   const tmpFile = path.join(os.tmpdir(), `screenshot-${Date.now()}.png`);
-  return new Promise((resolve, reject) => {
-    exec(`screencapture -i "${tmpFile}"`, (error) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      // ファイルが存在するか確認（ユーザーがキャンセルした場合は作成されない）
+  return new Promise((resolve) => {
+    exec(`screencapture -i "${tmpFile}"`, () => {
       if (fs.existsSync(tmpFile)) {
+        console.log('[main] capture-screen: success -', tmpFile);
         resolve(tmpFile);
       } else {
+        console.log('[main] capture-screen: cancelled or failed');
         resolve(null);
       }
     });
   });
 });
 
-// 画像ファイルを開く
+// Open image file
 ipcMain.handle('open-file', async () => {
+  console.log('[main] open-file: showing dialog');
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
     filters: [
@@ -69,36 +71,20 @@ ipcMain.handle('open-file', async () => {
   });
 
   if (result.canceled || result.filePaths.length === 0) {
+    console.log('[main] open-file: cancelled');
     return null;
   }
 
+  console.log('[main] open-file: selected -', result.filePaths[0]);
   return result.filePaths[0];
 });
 
-// 画像を保存
-ipcMain.handle('save-file', async (event, dataUrl) => {
-  const result = await dialog.showSaveDialog(mainWindow, {
-    filters: [
-      { name: 'PNG', extensions: ['png'] },
-      { name: 'JPEG', extensions: ['jpg', 'jpeg'] }
-    ]
-  });
-
-  if (result.canceled) {
-    return null;
-  }
-
-  const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '');
-  const buffer = Buffer.from(base64Data, 'base64');
-  fs.writeFileSync(result.filePath, buffer);
-
-  return result.filePath;
-});
-
-// 画像ファイルを読み込んでBase64で返す
+// Read image file and return as Base64
 ipcMain.handle('read-image', async (event, filePath) => {
+  console.log('[main] read-image: reading -', filePath);
   const data = fs.readFileSync(filePath);
   const ext = path.extname(filePath).toLowerCase();
   const mimeType = ext === '.png' ? 'image/png' : 'image/jpeg';
+  console.log('[main] read-image: done (size:', data.length, 'bytes)');
   return `data:${mimeType};base64,${data.toString('base64')}`;
 });
