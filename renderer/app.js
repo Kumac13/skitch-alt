@@ -15,10 +15,32 @@ function initApp() {
   // Setup event listeners
   document.getElementById('btn-capture').addEventListener('click', captureScreen);
   document.getElementById('btn-open').addEventListener('click', openFile);
+  document.getElementById('btn-clear').addEventListener('click', clearCanvas);
   document.getElementById('placeholder-capture').addEventListener('click', captureScreen);
   document.getElementById('placeholder-open').addEventListener('click', openFile);
 
+  // Keyboard shortcuts
+  document.addEventListener('keydown', handleKeyboard);
+
   console.log('[renderer] initApp: done');
+}
+
+// Keyboard shortcuts
+function handleKeyboard(e) {
+  // Cmd+Shift+5: Capture screenshot
+  if (e.metaKey && e.shiftKey && e.key === '5') {
+    e.preventDefault();
+    captureScreen();
+  }
+}
+
+// Clear canvas
+function clearCanvas() {
+  console.log('[renderer] clearCanvas: start');
+  canvas.clear();
+  canvas.wrapperEl.classList.remove('visible');
+  placeholder.classList.remove('hidden');
+  console.log('[renderer] clearCanvas: done');
 }
 
 // Capture screenshot
