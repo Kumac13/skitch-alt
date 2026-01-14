@@ -1,8 +1,9 @@
-// Phase 1: Image Loading Foundation
+// Phase 1.5: Image Loading + Save
 document.addEventListener('DOMContentLoaded', initApp);
 
 let canvas;
 let placeholder;
+let hasImage = false;
 
 function initApp() {
   placeholder = document.getElementById('canvas-placeholder');
@@ -18,6 +19,26 @@ function initApp() {
   document.getElementById('btn-clear').addEventListener('click', clearCanvas);
   document.getElementById('placeholder-capture').addEventListener('click', captureScreen);
   document.getElementById('placeholder-open').addEventListener('click', openFile);
+
+  // Save buttons
+  document.getElementById('btn-save').addEventListener('click', saveToClipboard);
+  document.getElementById('btn-save-toggle').addEventListener('click', toggleSaveMenu);
+  document.getElementById('save-clipboard').addEventListener('click', () => {
+    closeSaveMenu();
+    saveToClipboard();
+  });
+  document.getElementById('save-file').addEventListener('click', () => {
+    closeSaveMenu();
+    saveToFile();
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('save-dropdown');
+    if (!dropdown.contains(e.target)) {
+      closeSaveMenu();
+    }
+  });
 
   // Keyboard shortcuts
   document.addEventListener('keydown', handleKeyboard);
@@ -46,7 +67,70 @@ function clearCanvas() {
   canvas.clear();
   canvas.wrapperEl.classList.remove('visible');
   placeholder.classList.remove('hidden');
+  hasImage = false;
+  updateSaveButtons();
   console.log('[renderer] clearCanvas: done');
+}
+
+// Update save buttons state
+function updateSaveButtons() {
+  document.getElementById('btn-save').disabled = !hasImage;
+  document.getElementById('btn-save-toggle').disabled = !hasImage;
+}
+
+// Toggle save menu
+function toggleSaveMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('save-menu');
+  menu.classList.toggle('show');
+}
+
+// Close save menu
+function closeSaveMenu() {
+  document.getElementById('save-menu').classList.remove('show');
+}
+
+// Get canvas as data URL
+function getCanvasDataUrl() {
+  return canvas.toDataURL({ format: 'png', quality: 1 });
+}
+
+// Save to clipboard
+async function saveToClipboard() {
+  console.log('[renderer] saveToClipboard: start');
+  if (!hasImage) return;
+
+  try {
+    const dataUrl = getCanvasDataUrl();
+    const result = await window.electronAPI.saveToClipboard(dataUrl);
+    if (result.success) {
+      console.log('[renderer] saveToClipboard: done');
+    } else {
+      console.error('[renderer] saveToClipboard: failed', result.error);
+    }
+  } catch (error) {
+    console.error('[renderer] saveToClipboard: error', error);
+  }
+}
+
+// Save to file
+async function saveToFile() {
+  console.log('[renderer] saveToFile: start');
+  if (!hasImage) return;
+
+  try {
+    const dataUrl = getCanvasDataUrl();
+    const result = await window.electronAPI.saveToFile(dataUrl);
+    if (result.success) {
+      console.log('[renderer] saveToFile: saved -', result.filePath);
+    } else if (result.cancelled) {
+      console.log('[renderer] saveToFile: cancelled');
+    } else {
+      console.error('[renderer] saveToFile: failed', result.error);
+    }
+  } catch (error) {
+    console.error('[renderer] saveToFile: error', error);
+  }
 }
 
 // Capture screenshot
@@ -120,6 +204,8 @@ async function loadImage(filePath) {
       // Update UI
       canvas.wrapperEl.classList.add('visible');
       placeholder.classList.add('hidden');
+      hasImage = true;
+      updateSaveButtons();
 
       console.log('[renderer] loadImage: done');
     });

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, globalShortcut, clipboard, nativeImage } = require('electron');
 const path = require('path');
 const { exec } = require('child_process');
 const os = require('os');
@@ -23,8 +23,10 @@ function createWindow() {
 
   mainWindow.loadFile('renderer/index.html');
 
-  // Open DevTools in development
-  mainWindow.webContents.openDevTools();
+  // Open DevTools in development only
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools();
+  }
 }
 
 app.whenReady().then(() => {
@@ -101,4 +103,49 @@ ipcMain.handle('read-image', async (event, filePath) => {
   const mimeType = ext === '.png' ? 'image/png' : 'image/jpeg';
   console.log('[main] read-image: done (size:', data.length, 'bytes)');
   return `data:${mimeType};base64,${data.toString('base64')}`;
+});
+
+// Save to clipboard
+ipcMain.handle('save-to-clipboard', async (event, dataUrl) => {
+  console.log('[main] save-to-clipboard: start');
+  try {
+    const image = nativeImage.createFromDataURL(dataUrl);
+    clipboard.writeImage(image);
+    console.log('[main] save-to-clipboard: done');
+    return { success: true };
+  } catch (error) {
+    console.error('[main] save-to-clipboard: error', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Save to file
+ipcMain.handle('save-to-file', async (event, dataUrl) => {
+  console.log('[main] save-to-file: showing dialog');
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: `screenshot-${Date.now()}.png`,
+    filters: [
+      { name: 'PNG Image', extensions: ['png'] },
+      { name: 'JPEG Image', extensions: ['jpg', 'jpeg'] }
+    ]
+  });
+
+  if (result.canceled || !result.filePath) {
+    console.log('[main] save-to-file: cancelled');
+    return { success: false, cancelled: true };
+  }
+
+  try {
+    const image = nativeImage.createFromDataURL(dataUrl);
+    const ext = path.extname(result.filePath).toLowerCase();
+    const buffer = ext === '.jpg' || ext === '.jpeg'
+      ? image.toJPEG(90)
+      : image.toPNG();
+    fs.writeFileSync(result.filePath, buffer);
+    console.log('[main] save-to-file: saved -', result.filePath);
+    return { success: true, filePath: result.filePath };
+  } catch (error) {
+    console.error('[main] save-to-file: error', error);
+    return { success: false, error: error.message };
+  }
 });

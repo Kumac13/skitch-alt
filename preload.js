@@ -10,6 +10,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Read image file
   readImage: (filePath) => ipcRenderer.invoke('read-image', filePath),
 
+  // Save to clipboard
+  saveToClipboard: (dataUrl) => ipcRenderer.invoke('save-to-clipboard', dataUrl),
+
+  // Save to file
+  saveToFile: (dataUrl) => ipcRenderer.invoke('save-to-file', dataUrl),
+
   // Listen for capture trigger from main process
   onTriggerCapture: (callback) => ipcRenderer.on('trigger-capture', callback)
 });
