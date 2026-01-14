@@ -8,5 +8,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFile: () => ipcRenderer.invoke('open-file'),
 
   // Read image file
-  readImage: (filePath) => ipcRenderer.invoke('read-image', filePath)
+  readImage: (filePath) => ipcRenderer.invoke('read-image', filePath),
+
+  // Listen for capture trigger from main process
+  onTriggerCapture: (callback) => ipcRenderer.on('trigger-capture', callback)
 });

@@ -22,6 +22,12 @@ function initApp() {
   // Keyboard shortcuts
   document.addEventListener('keydown', handleKeyboard);
 
+  // Listen for global shortcut trigger from main process
+  window.electronAPI.onTriggerCapture(() => {
+    console.log('[renderer] onTriggerCapture: received');
+    captureScreen();
+  });
+
   console.log('[renderer] initApp: done');
 }
 

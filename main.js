@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, globalShortcut } = require('electron');
 const path = require('path');
 const { exec } = require('child_process');
 const os = require('os');
@@ -30,11 +30,25 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
+  // Register global shortcut: Cmd+Shift+5
+  globalShortcut.register('CommandOrControl+Shift+5', () => {
+    console.log('[main] globalShortcut: Cmd+Shift+5 pressed');
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.webContents.send('trigger-capture');
+    }
+  });
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });
 
 app.on('window-all-closed', () => {
