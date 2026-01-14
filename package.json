@@ -25,27 +25,13 @@
     "productName": "Skitch Alt",
     "mac": {
       "category": "public.app-category.graphics-design",
-      "target": ["dmg", "zip"],
-      "icon": "assets/icon.icns",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "assets/entitlements.mac.plist",
-      "entitlementsInherit": "assets/entitlements.mac.plist"
-    },
-    "dmg": {
-      "contents": [
-        { "x": 130, "y": 220 },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
-      ]
+      "target": "dmg",
+      "icon": "assets/icon.icns"
     },
     "files": [
       "main.js",
       "preload.js",
-      "renderer/**/*",
-      "!renderer/fabric.min.js.map"
-    ],
-    "directories": {
-      "output": "dist"
-    }
+      "renderer/**/*"
+    ]
   }
 }
