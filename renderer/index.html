@@ -29,6 +29,35 @@
           </svg>
         </button>
       </div>
+      <div class="toolbar-spacer"></div>
+      <div class="toolbar-section save-section">
+        <div class="save-dropdown" id="save-dropdown">
+          <button class="tool-btn save-btn" id="btn-save" title="Copy to Clipboard" disabled>
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
+            </svg>
+          </button>
+          <button class="dropdown-toggle" id="btn-save-toggle" title="Save Options" disabled>
+            <svg viewBox="0 0 24 24" width="12" height="12">
+              <path fill="currentColor" d="M7,10L12,15L17,10H7Z"/>
+            </svg>
+          </button>
+          <div class="dropdown-menu" id="save-menu">
+            <button class="dropdown-item" id="save-clipboard">
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
+              </svg>
+              Copy to Clipboard
+            </button>
+            <button class="dropdown-item" id="save-file">
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <path fill="currentColor" d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/>
+              </svg>
+              Save to File...
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Canvas Area -->
