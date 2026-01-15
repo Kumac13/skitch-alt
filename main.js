@@ -33,13 +33,47 @@ app.whenReady().then(() => {
   createWindow();
 
   // Register global shortcut: Cmd+Shift+5
-  globalShortcut.register('CommandOrControl+Shift+5', () => {
+  globalShortcut.register('CommandOrControl+Shift+5', async () => {
     console.log('[main] globalShortcut: Cmd+Shift+5 pressed');
-    if (mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
-      mainWindow.webContents.send('trigger-capture');
+
+    // Hide window if visible (so it doesn't interfere with screenshot)
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+      mainWindow.hide();
     }
+
+    // Capture screenshot first
+    const tmpFile = path.join(os.tmpdir(), `screenshot-${Date.now()}.png`);
+    await new Promise((resolve) => {
+      exec(`screencapture -i "${tmpFile}"`, resolve);
+    });
+
+    // Check if capture was cancelled
+    if (!fs.existsSync(tmpFile)) {
+      console.log('[main] globalShortcut: capture cancelled');
+      // Show window again if it existed
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+      }
+      return;
+    }
+
+    // Ensure window exists
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      createWindow();
+      await new Promise((resolve) => {
+        mainWindow.webContents.once('did-finish-load', resolve);
+      });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    // Show window and load the captured image
+    mainWindow.show();
+    mainWindow.focus();
+
+    // Use IPC to load the image directly
+    const data = fs.readFileSync(tmpFile);
+    const dataUrl = `data:image/png;base64,${data.toString('base64')}`;
+    mainWindow.webContents.send('load-image-data', dataUrl);
   });
 
   app.on('activate', () => {

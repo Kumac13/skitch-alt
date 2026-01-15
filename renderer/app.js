@@ -4,6 +4,9 @@ document.addEventListener('DOMContentLoaded', initApp);
 let canvas;
 let placeholder;
 let hasImage = false;
+let originalImageDataUrl = null;
+let originalImageWidth = 0;
+let originalImageHeight = 0;
 
 function initApp() {
   placeholder = document.getElementById('canvas-placeholder');
@@ -49,6 +52,12 @@ function initApp() {
     captureScreen();
   });
 
+  // Listen for image data from main process (via global shortcut)
+  window.electronAPI.onLoadImageData((dataUrl) => {
+    console.log('[renderer] onLoadImageData: received');
+    loadImageFromDataUrl(dataUrl);
+  });
+
   console.log('[renderer] initApp: done');
 }
 
@@ -68,6 +77,9 @@ function clearCanvas() {
   canvas.wrapperEl.classList.remove('visible');
   placeholder.classList.remove('hidden');
   hasImage = false;
+  originalImageDataUrl = null;
+  originalImageWidth = 0;
+  originalImageHeight = 0;
   updateSaveButtons();
   console.log('[renderer] clearCanvas: done');
 }
@@ -90,9 +102,23 @@ function closeSaveMenu() {
   document.getElementById('save-menu').classList.remove('show');
 }
 
-// Get canvas as data URL
+// Get image as data URL (50% resolution for file size reduction)
 function getCanvasDataUrl() {
-  return canvas.toDataURL({ format: 'png', quality: 1 });
+  if (!originalImageDataUrl) return null;
+
+  // Create offscreen canvas at 50% size
+  const offscreen = document.createElement('canvas');
+  const scale = 0.5;
+  offscreen.width = Math.floor(originalImageWidth * scale);
+  offscreen.height = Math.floor(originalImageHeight * scale);
+
+  const img = new Image();
+  img.src = originalImageDataUrl;
+
+  const ctx = offscreen.getContext('2d');
+  ctx.drawImage(img, 0, 0, offscreen.width, offscreen.height);
+
+  return offscreen.toDataURL('image/png');
 }
 
 // Save to clipboard
@@ -161,55 +187,67 @@ async function openFile() {
   }
 }
 
-// Load image
+// Load image from file path
 async function loadImage(filePath) {
   console.log('[renderer] loadImage: start -', filePath);
   try {
     const dataUrl = await window.electronAPI.readImage(filePath);
-    console.log('[renderer] loadImage: dataUrl received (length:', dataUrl.length, ')');
-
-    fabric.Image.fromURL(dataUrl, (img) => {
-      console.log('[renderer] loadImage: Fabric.Image created -', img.width, 'x', img.height);
-
-      // Get editor area size
-      const editorArea = document.getElementById('editor-area');
-      const maxWidth = editorArea.clientWidth - 40;
-      const maxHeight = editorArea.clientHeight - 40;
-
-      // Calculate scale to fit in area
-      let scale = 1;
-      if (img.width > maxWidth || img.height > maxHeight) {
-        scale = Math.min(maxWidth / img.width, maxHeight / img.height);
-      }
-
-      const canvasWidth = Math.floor(img.width * scale);
-      const canvasHeight = Math.floor(img.height * scale);
-
-      console.log('[renderer] loadImage: scale =', scale, ', canvas =', canvasWidth, 'x', canvasHeight);
-
-      // Set canvas size
-      canvas.setDimensions({
-        width: canvasWidth,
-        height: canvasHeight
-      });
-
-      // Set as background image (with scale)
-      canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-        originX: 'left',
-        originY: 'top',
-        scaleX: scale,
-        scaleY: scale
-      });
-
-      // Update UI
-      canvas.wrapperEl.classList.add('visible');
-      placeholder.classList.add('hidden');
-      hasImage = true;
-      updateSaveButtons();
-
-      console.log('[renderer] loadImage: done');
-    });
+    loadImageFromDataUrl(dataUrl);
   } catch (error) {
     console.error('[renderer] loadImage: error', error);
   }
+}
+
+// Load image from data URL
+function loadImageFromDataUrl(dataUrl) {
+  console.log('[renderer] loadImageFromDataUrl: start (length:', dataUrl.length, ')');
+
+  // Store original for saving at full resolution
+  originalImageDataUrl = dataUrl;
+
+  fabric.Image.fromURL(dataUrl, (img) => {
+    console.log('[renderer] loadImageFromDataUrl: Fabric.Image created -', img.width, 'x', img.height);
+
+    // Store original dimensions for saving
+    originalImageWidth = img.width;
+    originalImageHeight = img.height;
+
+    // Get editor area size
+    const editorArea = document.getElementById('editor-area');
+    const maxWidth = editorArea.clientWidth - 40;
+    const maxHeight = editorArea.clientHeight - 40;
+
+    // Calculate scale to fit in area
+    let scale = 1;
+    if (img.width > maxWidth || img.height > maxHeight) {
+      scale = Math.min(maxWidth / img.width, maxHeight / img.height);
+    }
+
+    const canvasWidth = Math.floor(img.width * scale);
+    const canvasHeight = Math.floor(img.height * scale);
+
+    console.log('[renderer] loadImageFromDataUrl: scale =', scale, ', canvas =', canvasWidth, 'x', canvasHeight);
+
+    // Set canvas size
+    canvas.setDimensions({
+      width: canvasWidth,
+      height: canvasHeight
+    });
+
+    // Set as background image (with scale)
+    canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+      originX: 'left',
+      originY: 'top',
+      scaleX: scale,
+      scaleY: scale
+    });
+
+    // Update UI
+    canvas.wrapperEl.classList.add('visible');
+    placeholder.classList.add('hidden');
+    hasImage = true;
+    updateSaveButtons();
+
+    console.log('[renderer] loadImageFromDataUrl: done');
+  });
 }

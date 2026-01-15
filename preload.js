@@ -17,5 +17,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveToFile: (dataUrl) => ipcRenderer.invoke('save-to-file', dataUrl),
 
   // Listen for capture trigger from main process
-  onTriggerCapture: (callback) => ipcRenderer.on('trigger-capture', callback)
+  onTriggerCapture: (callback) => ipcRenderer.on('trigger-capture', callback),
+
+  // Listen for image data from main process
+  onLoadImageData: (callback) => ipcRenderer.on('load-image-data', (event, dataUrl) => callback(dataUrl))
 });
