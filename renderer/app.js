@@ -8,6 +8,13 @@ let originalImageDataUrl = null;
 let originalImageWidth = 0;
 let originalImageHeight = 0;
 
+// Canvas expansion state
+let imageOffsetX = 0;        // Image X offset within canvas
+let imageOffsetY = 0;        // Image Y offset within canvas
+let displayScale = 1;        // Scale factor for display
+let displayImageWidth = 0;   // Displayed image width (scaled)
+let displayImageHeight = 0;  // Displayed image height (scaled)
+
 // Drawing tool state
 let currentTool = null;      // 'arrow' or null
 let currentColor = '#ff0000';
@@ -88,6 +95,9 @@ function initApp() {
     }
   });
 
+  // Canvas auto-expansion: only after placement is complete
+  canvas.on('object:modified', updateCanvasBounds);
+
   // Check screen recording permission on startup
   checkScreenPermission();
 
@@ -115,6 +125,8 @@ function handleKeyboard(e) {
       canvas.discardActiveObject();
       canvas.renderAll();
       console.log('[renderer] handleKeyboard: deleted object');
+      // Check if canvas can shrink
+      updateCanvasBounds();
     }
   }
   // Escape: Deselect tool
@@ -127,12 +139,19 @@ function handleKeyboard(e) {
 function clearCanvas() {
   console.log('[renderer] clearCanvas: start');
   canvas.clear();
+  canvas.backgroundColor = null;
   canvas.wrapperEl.classList.remove('visible');
   placeholder.classList.remove('hidden');
   hasImage = false;
   originalImageDataUrl = null;
   originalImageWidth = 0;
   originalImageHeight = 0;
+  // Reset canvas expansion state
+  imageOffsetX = 0;
+  imageOffsetY = 0;
+  displayScale = 1;
+  displayImageWidth = 0;
+  displayImageHeight = 0;
   // Reset drawing state
   isDrawing = false;
   startPoint = null;
@@ -282,21 +301,33 @@ function loadImageFromDataUrl(dataUrl) {
       scale = Math.min(maxWidth / img.width, maxHeight / img.height);
     }
 
-    const canvasWidth = Math.floor(img.width * scale);
-    const canvasHeight = Math.floor(img.height * scale);
+    // Store display dimensions
+    displayScale = scale;
+    displayImageWidth = Math.floor(img.width * scale);
+    displayImageHeight = Math.floor(img.height * scale);
+
+    // No initial padding - expand only when needed
+    imageOffsetX = 0;
+    imageOffsetY = 0;
+
+    const canvasWidth = displayImageWidth;
+    const canvasHeight = displayImageHeight;
 
     console.log('[renderer] loadImageFromDataUrl: scale =', scale, ', canvas =', canvasWidth, 'x', canvasHeight);
 
-    // Set canvas size
+    // Set canvas size with white background (for expansion)
     canvas.setDimensions({
       width: canvasWidth,
       height: canvasHeight
     });
+    canvas.backgroundColor = '#ffffff';
 
     // Set as background image (with scale)
     canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
       originX: 'left',
       originY: 'top',
+      left: 0,
+      top: 0,
       scaleX: scale,
       scaleY: scale
     });
@@ -427,6 +458,8 @@ function onCanvasMouseDown(opt) {
     text.selectAll();
     setTool(null);
     console.log('[renderer] onCanvasMouseDown: text created');
+    // Check if canvas needs expansion
+    updateCanvasBounds();
     return;
   }
 
@@ -483,6 +516,8 @@ function onCanvasMouseUp(opt) {
     console.log('[renderer] onCanvasMouseUp: arrow created');
     // Deactivate tool after placing arrow
     setTool(null);
+    // Check if canvas needs expansion
+    updateCanvasBounds();
   }
 
   isDrawing = false;
@@ -519,4 +554,142 @@ function createArrow(x1, y1, x2, y2, color) {
     hasControls: true,
     hasBorders: true
   });
+}
+
+// ==================== Canvas Auto-Expansion ====================
+
+// Update canvas bounds based on object positions
+function updateCanvasBounds() {
+  if (!hasImage) return;
+
+  const objects = canvas.getObjects();
+  const padding = 20;
+
+  // Image bounds in canvas coordinates
+  const imgLeft = imageOffsetX;
+  const imgTop = imageOffsetY;
+  const imgRight = imageOffsetX + displayImageWidth;
+  const imgBottom = imageOffsetY + displayImageHeight;
+
+  // If no objects, shrink to image size
+  if (objects.length === 0) {
+    if (canvas.width !== displayImageWidth || canvas.height !== displayImageHeight || imageOffsetX !== 0 || imageOffsetY !== 0) {
+      shrinkToImageSize();
+    }
+    return;
+  }
+
+  // Calculate bounds of all objects
+  let objMinX = Infinity, objMinY = Infinity;
+  let objMaxX = -Infinity, objMaxY = -Infinity;
+
+  objects.forEach(obj => {
+    const bound = obj.getBoundingRect();
+    objMinX = Math.min(objMinX, bound.left);
+    objMinY = Math.min(objMinY, bound.top);
+    objMaxX = Math.max(objMaxX, bound.left + bound.width);
+    objMaxY = Math.max(objMaxY, bound.top + bound.height);
+  });
+
+  // Calculate required canvas bounds
+  // Left: min of image left and (object left - padding if outside image)
+  const requiredLeft = objMinX < imgLeft ? objMinX - padding : imgLeft;
+  // Top: min of image top and (object top - padding if outside image)
+  const requiredTop = objMinY < imgTop ? objMinY - padding : imgTop;
+  // Right: max of image right and (object right + padding if outside image)
+  const requiredRight = objMaxX > imgRight ? objMaxX + padding : imgRight;
+  // Bottom: max of image bottom and (object bottom + padding if outside image)
+  const requiredBottom = objMaxY > imgBottom ? objMaxY + padding : imgBottom;
+
+  // Calculate new canvas dimensions
+  const newWidth = requiredRight - requiredLeft;
+  const newHeight = requiredBottom - requiredTop;
+
+  // Calculate new image offset in new canvas coordinates
+  const newOffsetX = imageOffsetX - requiredLeft;
+  const newOffsetY = imageOffsetY - requiredTop;
+
+  // Check if resize is needed
+  const needsResize = Math.abs(newWidth - canvas.width) > 1 ||
+                      Math.abs(newHeight - canvas.height) > 1 ||
+                      Math.abs(newOffsetX - imageOffsetX) > 1 ||
+                      Math.abs(newOffsetY - imageOffsetY) > 1;
+
+  if (needsResize) {
+    resizeCanvas(newWidth, newHeight, newOffsetX, newOffsetY, requiredLeft, requiredTop);
+  }
+}
+
+// Shrink canvas back to image size (when no objects outside image)
+function shrinkToImageSize() {
+  console.log('[renderer] shrinkToImageSize');
+
+  // Shift objects back if image was offset
+  if (imageOffsetX !== 0 || imageOffsetY !== 0) {
+    canvas.getObjects().forEach(obj => {
+      obj.set({
+        left: obj.left - imageOffsetX,
+        top: obj.top - imageOffsetY
+      });
+      obj.setCoords();
+    });
+  }
+
+  // Reset image offset
+  imageOffsetX = 0;
+  imageOffsetY = 0;
+
+  // Update background image position
+  const bgImg = canvas.backgroundImage;
+  if (bgImg) {
+    bgImg.set({ left: 0, top: 0 });
+  }
+
+  // Resize canvas to image size
+  canvas.setDimensions({
+    width: displayImageWidth,
+    height: displayImageHeight
+  });
+
+  canvas.renderAll();
+}
+
+// Resize canvas to new dimensions
+function resizeCanvas(newWidth, newHeight, newOffsetX, newOffsetY, originShiftX, originShiftY) {
+  console.log('[renderer] resizeCanvas:', newWidth, 'x', newHeight, 'newOffset:', newOffsetX, newOffsetY, 'originShift:', originShiftX, originShiftY);
+
+  // Shift all objects by the canvas origin change
+  const shiftX = -originShiftX;
+  const shiftY = -originShiftY;
+
+  if (shiftX !== 0 || shiftY !== 0) {
+    canvas.getObjects().forEach(obj => {
+      obj.set({
+        left: obj.left + shiftX,
+        top: obj.top + shiftY
+      });
+      obj.setCoords();
+    });
+  }
+
+  // Update image offset
+  imageOffsetX = newOffsetX;
+  imageOffsetY = newOffsetY;
+
+  // Update background image position
+  const bgImg = canvas.backgroundImage;
+  if (bgImg) {
+    bgImg.set({
+      left: imageOffsetX,
+      top: imageOffsetY
+    });
+  }
+
+  // Resize canvas
+  canvas.setDimensions({
+    width: newWidth,
+    height: newHeight
+  });
+
+  canvas.renderAll();
 }
