@@ -46,6 +46,10 @@ function initApp() {
   // Keyboard shortcuts
   document.addEventListener('keydown', handleKeyboard);
 
+  // Permission dialog buttons
+  document.getElementById('permission-later').addEventListener('click', hidePermissionDialog);
+  document.getElementById('permission-open-settings').addEventListener('click', openPermissionSettings);
+
   // Listen for global shortcut trigger from main process
   window.electronAPI.onTriggerCapture(() => {
     console.log('[renderer] onTriggerCapture: received');
@@ -57,6 +61,9 @@ function initApp() {
     console.log('[renderer] onLoadImageData: received');
     loadImageFromDataUrl(dataUrl);
   });
+
+  // Check screen recording permission on startup
+  checkScreenPermission();
 
   console.log('[renderer] initApp: done');
 }
@@ -255,4 +262,43 @@ function loadImageFromDataUrl(dataUrl) {
 
     console.log('[renderer] loadImageFromDataUrl: done');
   });
+}
+
+// Check screen recording permission
+async function checkScreenPermission() {
+  console.log('[renderer] checkScreenPermission: start');
+  try {
+    const status = await window.electronAPI.checkScreenPermission();
+    console.log('[renderer] checkScreenPermission: status =', status);
+
+    // Show dialog if permission is not granted
+    // 'granted' = permission granted
+    // 'denied' = permission denied
+    // 'restricted' = restricted by system policy
+    // 'not-determined' = not yet asked (first launch)
+    if (status !== 'granted') {
+      showPermissionDialog();
+    }
+  } catch (error) {
+    console.error('[renderer] checkScreenPermission: error', error);
+  }
+}
+
+// Show permission dialog
+function showPermissionDialog() {
+  console.log('[renderer] showPermissionDialog');
+  document.getElementById('permission-dialog').style.display = 'flex';
+}
+
+// Hide permission dialog
+function hidePermissionDialog() {
+  console.log('[renderer] hidePermissionDialog');
+  document.getElementById('permission-dialog').style.display = 'none';
+}
+
+// Open permission settings
+function openPermissionSettings() {
+  console.log('[renderer] openPermissionSettings');
+  window.electronAPI.openScreenPermissionSettings();
+  hidePermissionDialog();
 }

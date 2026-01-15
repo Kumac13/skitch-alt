@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, globalShortcut, clipboard, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, globalShortcut, clipboard, nativeImage, systemPreferences, shell } = require('electron');
 const path = require('path');
 const { exec } = require('child_process');
 const os = require('os');
@@ -182,4 +182,17 @@ ipcMain.handle('save-to-file', async (event, dataUrl) => {
     console.error('[main] save-to-file: error', error);
     return { success: false, error: error.message };
   }
+});
+
+// Check screen recording permission
+ipcMain.handle('check-screen-permission', () => {
+  const status = systemPreferences.getMediaAccessStatus('screen');
+  console.log('[main] check-screen-permission:', status);
+  return status;
+});
+
+// Open screen recording permission settings
+ipcMain.handle('open-screen-permission-settings', () => {
+  console.log('[main] open-screen-permission-settings');
+  shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture');
 });

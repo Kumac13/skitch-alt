@@ -20,5 +20,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onTriggerCapture: (callback) => ipcRenderer.on('trigger-capture', callback),
 
   // Listen for image data from main process
-  onLoadImageData: (callback) => ipcRenderer.on('load-image-data', (event, dataUrl) => callback(dataUrl))
+  onLoadImageData: (callback) => ipcRenderer.on('load-image-data', (event, dataUrl) => callback(dataUrl)),
+
+  // Check screen recording permission
+  checkScreenPermission: () => ipcRenderer.invoke('check-screen-permission'),
+
+  // Open screen recording permission settings
+  openScreenPermissionSettings: () => ipcRenderer.invoke('open-screen-permission-settings')
 });

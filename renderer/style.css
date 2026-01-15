@@ -287,3 +287,86 @@ body {
 .editor-area::-webkit-scrollbar-thumb:hover {
   background: #666;
 }
+
+/* Permission Dialog */
+.permission-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  -webkit-app-region: no-drag;
+}
+
+.permission-dialog {
+  background-color: var(--toolbar-bg);
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.permission-dialog-icon {
+  margin-bottom: 16px;
+  color: var(--accent-color);
+}
+
+.permission-dialog h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.permission-dialog p {
+  font-size: 14px;
+  color: #aaa;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.permission-dialog-hint {
+  font-size: 12px !important;
+  color: #888 !important;
+  margin-top: 8px;
+}
+
+.permission-dialog-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.permission-btn-primary,
+.permission-btn-secondary {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.permission-btn-primary {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.permission-btn-primary:hover {
+  background-color: #1084d8;
+}
+
+.permission-btn-secondary {
+  background-color: #444;
+  color: white;
+}
+
+.permission-btn-secondary:hover {
+  background-color: #555;
+}
