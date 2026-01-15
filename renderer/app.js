@@ -16,11 +16,13 @@ let displayImageWidth = 0;   // Displayed image width (scaled)
 let displayImageHeight = 0;  // Displayed image height (scaled)
 
 // Drawing tool state
-let currentTool = null;      // 'arrow' or null
+let currentTool = null;      // 'arrow', 'text', 'rect', or null
 let currentColor = '#ff0000';
+let currentStrokeWidth = 4;  // Default: medium
 let isDrawing = false;
 let startPoint = null;
 let drawingArrow = null;
+let drawingRect = null;
 
 function initApp() {
   placeholder = document.getElementById('canvas-placeholder');
@@ -40,7 +42,9 @@ function initApp() {
   // Drawing tools
   document.getElementById('btn-arrow').addEventListener('click', toggleArrowTool);
   document.getElementById('btn-text').addEventListener('click', toggleTextTool);
+  document.getElementById('btn-rect').addEventListener('click', toggleRectTool);
   document.getElementById('color-picker').addEventListener('input', updateColor);
+  document.getElementById('stroke-width').addEventListener('change', updateStrokeWidth);
   updateColorPreview();
 
   // Save buttons
@@ -160,6 +164,7 @@ function clearCanvas() {
   isDrawing = false;
   startPoint = null;
   drawingArrow = null;
+  drawingRect = null;
   updateSaveButtons();
   console.log('[renderer] clearCanvas: done');
 }
@@ -170,6 +175,7 @@ function updateSaveButtons() {
   document.getElementById('btn-save-toggle').disabled = !hasImage;
   document.getElementById('btn-arrow').disabled = !hasImage;
   document.getElementById('btn-text').disabled = !hasImage;
+  document.getElementById('btn-rect').disabled = !hasImage;
   // Deselect tool when no image
   if (!hasImage && currentTool) {
     setTool(null);
@@ -405,6 +411,15 @@ function toggleTextTool() {
   }
 }
 
+// Toggle rectangle tool
+function toggleRectTool() {
+  if (currentTool === 'rect') {
+    setTool(null);
+  } else {
+    setTool('rect');
+  }
+}
+
 // Set current tool
 function setTool(tool) {
   currentTool = tool;
@@ -413,6 +428,7 @@ function setTool(tool) {
   // Update button states
   document.getElementById('btn-arrow').classList.toggle('active', tool === 'arrow');
   document.getElementById('btn-text').classList.toggle('active', tool === 'text');
+  document.getElementById('btn-rect').classList.toggle('active', tool === 'rect');
 
   // Update canvas selection mode
   if (tool) {
@@ -438,6 +454,20 @@ function updateColorPreview() {
   const preview = document.getElementById('color-preview');
   if (preview) {
     preview.style.backgroundColor = currentColor;
+  }
+}
+
+// Update stroke width from select
+function updateStrokeWidth(e) {
+  currentStrokeWidth = parseInt(e.target.value, 10);
+  console.log('[renderer] updateStrokeWidth:', currentStrokeWidth);
+
+  // Update selected object's stroke width if it has stroke
+  const activeObject = canvas.getActiveObject();
+  if (activeObject && activeObject.stroke) {
+    activeObject.set('strokeWidth', currentStrokeWidth);
+    canvas.renderAll();
+    console.log('[renderer] updateStrokeWidth: updated selected object');
   }
 }
 
@@ -467,10 +497,12 @@ function onCanvasMouseDown(opt) {
     return;
   }
 
-  // Arrow tool: start drawing
-  isDrawing = true;
-  startPoint = { x: pointer.x, y: pointer.y };
-  console.log('[renderer] onCanvasMouseDown:', startPoint);
+  // Arrow tool or Rectangle tool: start drawing
+  if (currentTool === 'arrow' || currentTool === 'rect') {
+    isDrawing = true;
+    startPoint = { x: pointer.x, y: pointer.y };
+    console.log('[renderer] onCanvasMouseDown:', startPoint);
+  }
 }
 
 // Canvas mouse move
@@ -479,9 +511,14 @@ function onCanvasMouseMove(opt) {
 
   const pointer = canvas.getPointer(opt.e);
 
-  // Remove previous preview arrow
+  // Remove previous preview
   if (drawingArrow) {
     canvas.remove(drawingArrow);
+    drawingArrow = null;
+  }
+  if (drawingRect) {
+    canvas.remove(drawingRect);
+    drawingRect = null;
   }
 
   // Create preview arrow
@@ -490,6 +527,24 @@ function onCanvasMouseMove(opt) {
     drawingArrow.selectable = false;
     drawingArrow.evented = false;
     canvas.add(drawingArrow);
+    canvas.renderAll();
+  }
+
+  // Create preview rectangle
+  if (currentTool === 'rect') {
+    drawingRect = new fabric.Rect({
+      left: Math.min(startPoint.x, pointer.x),
+      top: Math.min(startPoint.y, pointer.y),
+      width: Math.abs(pointer.x - startPoint.x),
+      height: Math.abs(pointer.y - startPoint.y),
+      fill: 'transparent',
+      stroke: currentColor,
+      strokeWidth: currentStrokeWidth,
+      strokeUniform: true,
+      selectable: false,
+      evented: false
+    });
+    canvas.add(drawingRect);
     canvas.renderAll();
   }
 }
@@ -506,21 +561,48 @@ function onCanvasMouseUp(opt) {
     drawingArrow = null;
   }
 
-  // Calculate distance
-  const dx = pointer.x - startPoint.x;
-  const dy = pointer.y - startPoint.y;
-  const distance = Math.sqrt(dx * dx + dy * dy);
+  // Remove preview rectangle
+  if (drawingRect) {
+    canvas.remove(drawingRect);
+    drawingRect = null;
+  }
 
-  // Only create arrow if it's long enough (min 10px)
+  // Calculate dimensions
+  const width = Math.abs(pointer.x - startPoint.x);
+  const height = Math.abs(pointer.y - startPoint.y);
+  const distance = Math.sqrt(width * width + height * height);
+
+  // Create arrow if long enough (min 10px)
   if (distance >= 10 && currentTool === 'arrow') {
     const arrow = createArrow(startPoint.x, startPoint.y, pointer.x, pointer.y, currentColor);
     canvas.add(arrow);
     canvas.setActiveObject(arrow);
     canvas.renderAll();
     console.log('[renderer] onCanvasMouseUp: arrow created');
-    // Deactivate tool after placing arrow
     setTool(null);
-    // Check if canvas needs expansion
+    updateCanvasBounds();
+  }
+
+  // Create rectangle if large enough (min 10x10)
+  if (width >= 10 && height >= 10 && currentTool === 'rect') {
+    const rect = new fabric.Rect({
+      left: Math.min(startPoint.x, pointer.x),
+      top: Math.min(startPoint.y, pointer.y),
+      width: width,
+      height: height,
+      fill: 'transparent',
+      stroke: currentColor,
+      strokeWidth: currentStrokeWidth,
+      strokeUniform: true,
+      selectable: true,
+      hasControls: true,
+      hasBorders: true
+    });
+    canvas.add(rect);
+    canvas.setActiveObject(rect);
+    canvas.renderAll();
+    console.log('[renderer] onCanvasMouseUp: rect created');
+    setTool(null);
     updateCanvasBounds();
   }
 

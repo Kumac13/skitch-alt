@@ -41,10 +41,20 @@
             <path fill="currentColor" d="M5,4V7H10.5V19H13.5V7H19V4H5Z"/>
           </svg>
         </button>
+        <button class="tool-btn" id="btn-rect" title="Rectangle Tool" disabled>
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </button>
         <div class="color-picker-wrapper">
           <input type="color" id="color-picker" value="#ff0000">
           <span class="color-preview" id="color-preview"></span>
         </div>
+        <select id="stroke-width" class="stroke-select" title="Stroke Width">
+          <option value="2">S</option>
+          <option value="4" selected>M</option>
+          <option value="6">L</option>
+        </select>
       </div>
       <div class="toolbar-spacer"></div>
       <div class="toolbar-section save-section">

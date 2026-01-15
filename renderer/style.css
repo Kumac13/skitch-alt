@@ -206,6 +206,27 @@ body {
   pointer-events: none;
 }
 
+/* Stroke Width Select */
+.stroke-select {
+  height: 28px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 4px;
+  background-color: #444;
+  color: var(--text-color);
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.stroke-select:hover {
+  background-color: var(--button-hover);
+}
+
+.stroke-select:focus {
+  background-color: var(--button-active);
+}
+
 /* Canvas Area */
 .editor-area {
   flex: 1;
