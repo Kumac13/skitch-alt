@@ -116,9 +116,13 @@ function handleKeyboard(e) {
     e.preventDefault();
     saveToClipboard();
   }
-  // Delete/Backspace: Delete selected object
+  // Delete/Backspace: Delete selected object (but not while editing text)
   if (e.key === 'Delete' || e.key === 'Backspace') {
     const activeObject = canvas.getActiveObject();
+    // Skip if text is being edited
+    if (activeObject && activeObject.isEditing) {
+      return;
+    }
     if (activeObject && !activeObject._isBackground) {
       e.preventDefault();
       canvas.remove(activeObject);
