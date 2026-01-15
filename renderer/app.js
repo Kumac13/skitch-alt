@@ -32,6 +32,7 @@ function initApp() {
 
   // Drawing tools
   document.getElementById('btn-arrow').addEventListener('click', toggleArrowTool);
+  document.getElementById('btn-text').addEventListener('click', toggleTextTool);
   document.getElementById('color-picker').addEventListener('input', updateColor);
   updateColorPreview();
 
@@ -78,6 +79,14 @@ function initApp() {
   canvas.on('mouse:down', onCanvasMouseDown);
   canvas.on('mouse:move', onCanvasMouseMove);
   canvas.on('mouse:up', onCanvasMouseUp);
+
+  // Remove empty text when editing is finished
+  canvas.on('text:editing:exited', (e) => {
+    if (e.target && e.target.text && e.target.text.trim() === '') {
+      canvas.remove(e.target);
+      console.log('[renderer] text:editing:exited: removed empty text');
+    }
+  });
 
   // Check screen recording permission on startup
   checkScreenPermission();
@@ -137,6 +146,7 @@ function updateSaveButtons() {
   document.getElementById('btn-save').disabled = !hasImage;
   document.getElementById('btn-save-toggle').disabled = !hasImage;
   document.getElementById('btn-arrow').disabled = !hasImage;
+  document.getElementById('btn-text').disabled = !hasImage;
   // Deselect tool when no image
   if (!hasImage && currentTool) {
     setTool(null);
@@ -351,6 +361,15 @@ function toggleArrowTool() {
   }
 }
 
+// Toggle text tool
+function toggleTextTool() {
+  if (currentTool === 'text') {
+    setTool(null);
+  } else {
+    setTool('text');
+  }
+}
+
 // Set current tool
 function setTool(tool) {
   currentTool = tool;
@@ -358,6 +377,7 @@ function setTool(tool) {
 
   // Update button states
   document.getElementById('btn-arrow').classList.toggle('active', tool === 'arrow');
+  document.getElementById('btn-text').classList.toggle('active', tool === 'text');
 
   // Update canvas selection mode
   if (tool) {
@@ -391,6 +411,26 @@ function onCanvasMouseDown(opt) {
   if (!currentTool || !hasImage) return;
 
   const pointer = canvas.getPointer(opt.e);
+
+  // Text tool: create text at click position
+  if (currentTool === 'text') {
+    const text = new fabric.IText('Text', {
+      left: pointer.x,
+      top: pointer.y,
+      fontSize: 24,
+      fill: currentColor,
+      fontFamily: 'sans-serif'
+    });
+    canvas.add(text);
+    canvas.setActiveObject(text);
+    text.enterEditing();
+    text.selectAll();
+    setTool(null);
+    console.log('[renderer] onCanvasMouseDown: text created');
+    return;
+  }
+
+  // Arrow tool: start drawing
   isDrawing = true;
   startPoint = { x: pointer.x, y: pointer.y };
   console.log('[renderer] onCanvasMouseDown:', startPoint);
