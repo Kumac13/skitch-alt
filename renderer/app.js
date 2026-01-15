@@ -68,6 +68,11 @@ function handleKeyboard(e) {
     e.preventDefault();
     captureScreen();
   }
+  // Cmd+Shift+C: Copy to clipboard
+  if (e.metaKey && e.shiftKey && e.key === 'c') {
+    e.preventDefault();
+    saveToClipboard();
+  }
 }
 
 // Clear canvas
