@@ -8,6 +8,13 @@ let originalImageDataUrl = null;
 let originalImageWidth = 0;
 let originalImageHeight = 0;
 
+// Drawing tool state
+let currentTool = null;      // 'arrow' or null
+let currentColor = '#ff0000';
+let isDrawing = false;
+let startPoint = null;
+let drawingArrow = null;
+
 function initApp() {
   placeholder = document.getElementById('canvas-placeholder');
 
@@ -22,6 +29,11 @@ function initApp() {
   document.getElementById('btn-clear').addEventListener('click', clearCanvas);
   document.getElementById('placeholder-capture').addEventListener('click', captureScreen);
   document.getElementById('placeholder-open').addEventListener('click', openFile);
+
+  // Drawing tools
+  document.getElementById('btn-arrow').addEventListener('click', toggleArrowTool);
+  document.getElementById('color-picker').addEventListener('input', updateColor);
+  updateColorPreview();
 
   // Save buttons
   document.getElementById('btn-save').addEventListener('click', saveToClipboard);
@@ -62,6 +74,11 @@ function initApp() {
     loadImageFromDataUrl(dataUrl);
   });
 
+  // Canvas mouse events for drawing
+  canvas.on('mouse:down', onCanvasMouseDown);
+  canvas.on('mouse:move', onCanvasMouseMove);
+  canvas.on('mouse:up', onCanvasMouseUp);
+
   // Check screen recording permission on startup
   checkScreenPermission();
 
@@ -80,6 +97,21 @@ function handleKeyboard(e) {
     e.preventDefault();
     saveToClipboard();
   }
+  // Delete/Backspace: Delete selected object
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    const activeObject = canvas.getActiveObject();
+    if (activeObject && !activeObject._isBackground) {
+      e.preventDefault();
+      canvas.remove(activeObject);
+      canvas.discardActiveObject();
+      canvas.renderAll();
+      console.log('[renderer] handleKeyboard: deleted object');
+    }
+  }
+  // Escape: Deselect tool
+  if (e.key === 'Escape') {
+    setTool(null);
+  }
 }
 
 // Clear canvas
@@ -92,6 +124,10 @@ function clearCanvas() {
   originalImageDataUrl = null;
   originalImageWidth = 0;
   originalImageHeight = 0;
+  // Reset drawing state
+  isDrawing = false;
+  startPoint = null;
+  drawingArrow = null;
   updateSaveButtons();
   console.log('[renderer] clearCanvas: done');
 }
@@ -100,6 +136,11 @@ function clearCanvas() {
 function updateSaveButtons() {
   document.getElementById('btn-save').disabled = !hasImage;
   document.getElementById('btn-save-toggle').disabled = !hasImage;
+  document.getElementById('btn-arrow').disabled = !hasImage;
+  // Deselect tool when no image
+  if (!hasImage && currentTool) {
+    setTool(null);
+  }
 }
 
 // Toggle save menu
@@ -118,19 +159,15 @@ function closeSaveMenu() {
 function getCanvasDataUrl() {
   if (!originalImageDataUrl) return null;
 
-  // Create offscreen canvas at 50% size
-  const offscreen = document.createElement('canvas');
-  const scale = 0.5;
-  offscreen.width = Math.floor(originalImageWidth * scale);
-  offscreen.height = Math.floor(originalImageHeight * scale);
+  // Calculate multiplier to get 50% of original resolution
+  const saveScale = 0.5;
+  const multiplier = (originalImageWidth * saveScale) / canvas.width;
 
-  const img = new Image();
-  img.src = originalImageDataUrl;
-
-  const ctx = offscreen.getContext('2d');
-  ctx.drawImage(img, 0, 0, offscreen.width, offscreen.height);
-
-  return offscreen.toDataURL('image/png');
+  // Fabric.js toDataURL exports canvas with background and all objects
+  return canvas.toDataURL({
+    format: 'png',
+    multiplier: multiplier
+  });
 }
 
 // Save to clipboard
@@ -301,4 +338,145 @@ function openPermissionSettings() {
   console.log('[renderer] openPermissionSettings');
   window.electronAPI.openScreenPermissionSettings();
   hidePermissionDialog();
+}
+
+// ==================== Arrow Tool ====================
+
+// Toggle arrow tool
+function toggleArrowTool() {
+  if (currentTool === 'arrow') {
+    setTool(null);
+  } else {
+    setTool('arrow');
+  }
+}
+
+// Set current tool
+function setTool(tool) {
+  currentTool = tool;
+  console.log('[renderer] setTool:', tool);
+
+  // Update button states
+  document.getElementById('btn-arrow').classList.toggle('active', tool === 'arrow');
+
+  // Update canvas selection mode
+  if (tool) {
+    canvas.selection = false;
+    canvas.defaultCursor = 'crosshair';
+    canvas.hoverCursor = 'crosshair';
+  } else {
+    canvas.selection = true;
+    canvas.defaultCursor = 'default';
+    canvas.hoverCursor = 'move';
+  }
+}
+
+// Update color from picker
+function updateColor(e) {
+  currentColor = e.target.value;
+  updateColorPreview();
+  console.log('[renderer] updateColor:', currentColor);
+}
+
+// Update color preview
+function updateColorPreview() {
+  const preview = document.getElementById('color-preview');
+  if (preview) {
+    preview.style.backgroundColor = currentColor;
+  }
+}
+
+// Canvas mouse down
+function onCanvasMouseDown(opt) {
+  if (!currentTool || !hasImage) return;
+
+  const pointer = canvas.getPointer(opt.e);
+  isDrawing = true;
+  startPoint = { x: pointer.x, y: pointer.y };
+  console.log('[renderer] onCanvasMouseDown:', startPoint);
+}
+
+// Canvas mouse move
+function onCanvasMouseMove(opt) {
+  if (!isDrawing || !startPoint || !currentTool) return;
+
+  const pointer = canvas.getPointer(opt.e);
+
+  // Remove previous preview arrow
+  if (drawingArrow) {
+    canvas.remove(drawingArrow);
+  }
+
+  // Create preview arrow
+  if (currentTool === 'arrow') {
+    drawingArrow = createArrow(startPoint.x, startPoint.y, pointer.x, pointer.y, currentColor);
+    drawingArrow.selectable = false;
+    drawingArrow.evented = false;
+    canvas.add(drawingArrow);
+    canvas.renderAll();
+  }
+}
+
+// Canvas mouse up
+function onCanvasMouseUp(opt) {
+  if (!isDrawing || !startPoint || !currentTool) return;
+
+  const pointer = canvas.getPointer(opt.e);
+
+  // Remove preview arrow
+  if (drawingArrow) {
+    canvas.remove(drawingArrow);
+    drawingArrow = null;
+  }
+
+  // Calculate distance
+  const dx = pointer.x - startPoint.x;
+  const dy = pointer.y - startPoint.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
+  // Only create arrow if it's long enough (min 10px)
+  if (distance >= 10 && currentTool === 'arrow') {
+    const arrow = createArrow(startPoint.x, startPoint.y, pointer.x, pointer.y, currentColor);
+    canvas.add(arrow);
+    canvas.setActiveObject(arrow);
+    canvas.renderAll();
+    console.log('[renderer] onCanvasMouseUp: arrow created');
+    // Deactivate tool after placing arrow
+    setTool(null);
+  }
+
+  isDrawing = false;
+  startPoint = null;
+}
+
+// Create arrow (line + triangle head)
+function createArrow(x1, y1, x2, y2, color) {
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+
+  // Line
+  const line = new fabric.Line([x1, y1, x2, y2], {
+    stroke: color,
+    strokeWidth: 3,
+    strokeLineCap: 'round'
+  });
+
+  // Arrow head (triangle)
+  const headLength = 15;
+  const triangle = new fabric.Triangle({
+    width: 15,
+    height: 20,
+    fill: color,
+    left: x2,
+    top: y2,
+    angle: (angle * 180 / Math.PI) + 90,
+    originX: 'center',
+    originY: 'center'
+  });
+
+  // Group line and triangle
+  return new fabric.Group([line, triangle], {
+    selectable: true,
+    hasControls: true,
+    hasBorders: true
+  });
 }
