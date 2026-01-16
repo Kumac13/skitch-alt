@@ -23,6 +23,7 @@ let isDrawing = false;
 let startPoint = null;
 let drawingArrow = null;
 let drawingRect = null;
+let drawingMosaic = null;
 
 function initApp() {
   placeholder = document.getElementById('canvas-placeholder');
@@ -43,6 +44,7 @@ function initApp() {
   document.getElementById('btn-arrow').addEventListener('click', toggleArrowTool);
   document.getElementById('btn-text').addEventListener('click', toggleTextTool);
   document.getElementById('btn-rect').addEventListener('click', toggleRectTool);
+  document.getElementById('btn-mosaic').addEventListener('click', toggleMosaicTool);
   document.getElementById('color-picker').addEventListener('input', updateColor);
   document.getElementById('stroke-width').addEventListener('change', updateStrokeWidth);
   updateColorPreview();
@@ -165,6 +167,7 @@ function clearCanvas() {
   startPoint = null;
   drawingArrow = null;
   drawingRect = null;
+  drawingMosaic = null;
   updateSaveButtons();
   console.log('[renderer] clearCanvas: done');
 }
@@ -176,6 +179,7 @@ function updateSaveButtons() {
   document.getElementById('btn-arrow').disabled = !hasImage;
   document.getElementById('btn-text').disabled = !hasImage;
   document.getElementById('btn-rect').disabled = !hasImage;
+  document.getElementById('btn-mosaic').disabled = !hasImage;
   // Deselect tool when no image
   if (!hasImage && currentTool) {
     setTool(null);
@@ -420,6 +424,15 @@ function toggleRectTool() {
   }
 }
 
+// Toggle mosaic tool
+function toggleMosaicTool() {
+  if (currentTool === 'mosaic') {
+    setTool(null);
+  } else {
+    setTool('mosaic');
+  }
+}
+
 // Set current tool
 function setTool(tool) {
   currentTool = tool;
@@ -429,6 +442,7 @@ function setTool(tool) {
   document.getElementById('btn-arrow').classList.toggle('active', tool === 'arrow');
   document.getElementById('btn-text').classList.toggle('active', tool === 'text');
   document.getElementById('btn-rect').classList.toggle('active', tool === 'rect');
+  document.getElementById('btn-mosaic').classList.toggle('active', tool === 'mosaic');
 
   // Update canvas selection mode
   if (tool) {
@@ -497,8 +511,8 @@ function onCanvasMouseDown(opt) {
     return;
   }
 
-  // Arrow tool or Rectangle tool: start drawing
-  if (currentTool === 'arrow' || currentTool === 'rect') {
+  // Arrow tool, Rectangle tool, or Mosaic tool: start drawing
+  if (currentTool === 'arrow' || currentTool === 'rect' || currentTool === 'mosaic') {
     isDrawing = true;
     startPoint = { x: pointer.x, y: pointer.y };
     console.log('[renderer] onCanvasMouseDown:', startPoint);
@@ -519,6 +533,10 @@ function onCanvasMouseMove(opt) {
   if (drawingRect) {
     canvas.remove(drawingRect);
     drawingRect = null;
+  }
+  if (drawingMosaic) {
+    canvas.remove(drawingMosaic);
+    drawingMosaic = null;
   }
 
   // Create preview arrow
@@ -547,6 +565,24 @@ function onCanvasMouseMove(opt) {
     canvas.add(drawingRect);
     canvas.renderAll();
   }
+
+  // Create preview mosaic selection (dashed rectangle)
+  if (currentTool === 'mosaic') {
+    drawingMosaic = new fabric.Rect({
+      left: Math.min(startPoint.x, pointer.x),
+      top: Math.min(startPoint.y, pointer.y),
+      width: Math.abs(pointer.x - startPoint.x),
+      height: Math.abs(pointer.y - startPoint.y),
+      fill: 'rgba(128, 128, 128, 0.2)',
+      stroke: '#888888',
+      strokeWidth: 1,
+      strokeDashArray: [5, 5],
+      selectable: false,
+      evented: false
+    });
+    canvas.add(drawingMosaic);
+    canvas.renderAll();
+  }
 }
 
 // Canvas mouse up
@@ -565,6 +601,12 @@ function onCanvasMouseUp(opt) {
   if (drawingRect) {
     canvas.remove(drawingRect);
     drawingRect = null;
+  }
+
+  // Remove preview mosaic
+  if (drawingMosaic) {
+    canvas.remove(drawingMosaic);
+    drawingMosaic = null;
   }
 
   // Calculate dimensions
@@ -606,6 +648,21 @@ function onCanvasMouseUp(opt) {
     updateCanvasBounds();
   }
 
+  // Create mosaic if large enough (min 10x10)
+  if (width >= 10 && height >= 10 && currentTool === 'mosaic') {
+    const left = Math.min(startPoint.x, pointer.x);
+    const top = Math.min(startPoint.y, pointer.y);
+    const mosaicImg = createMosaicImage(left, top, width, height);
+    if (mosaicImg) {
+      canvas.add(mosaicImg);
+      canvas.setActiveObject(mosaicImg);
+      canvas.renderAll();
+      console.log('[renderer] onCanvasMouseUp: mosaic created');
+      setTool(null);
+      updateCanvasBounds();
+    }
+  }
+
   isDrawing = false;
   startPoint = null;
 }
@@ -640,6 +697,100 @@ function createArrow(x1, y1, x2, y2, color) {
     hasControls: true,
     hasBorders: true
   });
+}
+
+// Create mosaic image from canvas region (samples from background image only)
+function createMosaicImage(x, y, width, height, blockSize = 15) {
+  const bgImg = canvas.backgroundImage;
+  if (!bgImg) return null;
+
+  // Get the original image element
+  const imgElement = bgImg.getElement();
+
+  // Convert canvas coordinates to original image coordinates
+  const imgX = (x - imageOffsetX) / displayScale;
+  const imgY = (y - imageOffsetY) / displayScale;
+  const imgW = width / displayScale;
+  const imgH = height / displayScale;
+
+  // Create a temporary canvas to extract pixels from original image
+  const sourceCanvas = document.createElement('canvas');
+  sourceCanvas.width = Math.floor(imgW);
+  sourceCanvas.height = Math.floor(imgH);
+  const sourceCtx = sourceCanvas.getContext('2d');
+
+  // Draw the region from original image
+  sourceCtx.drawImage(
+    imgElement,
+    Math.floor(imgX), Math.floor(imgY), Math.floor(imgW), Math.floor(imgH),
+    0, 0, Math.floor(imgW), Math.floor(imgH)
+  );
+
+  // Get pixel data from original image
+  const sw = Math.floor(imgW);
+  const sh = Math.floor(imgH);
+  const imageData = sourceCtx.getImageData(0, 0, sw, sh);
+  const data = imageData.data;
+
+  // Apply mosaic effect on original resolution
+  for (let by = 0; by < sh; by += blockSize) {
+    for (let bx = 0; bx < sw; bx += blockSize) {
+      const blockW = Math.min(blockSize, sw - bx);
+      const blockH = Math.min(blockSize, sh - by);
+
+      // Calculate average color for this block
+      let r = 0, g = 0, b = 0, count = 0;
+      for (let py = 0; py < blockH; py++) {
+        for (let px = 0; px < blockW; px++) {
+          const idx = ((by + py) * sw + (bx + px)) * 4;
+          r += data[idx];
+          g += data[idx + 1];
+          b += data[idx + 2];
+          count++;
+        }
+      }
+      if (count > 0) {
+        r = Math.round(r / count);
+        g = Math.round(g / count);
+        b = Math.round(b / count);
+      }
+
+      // Fill block with average color
+      for (let py = 0; py < blockH; py++) {
+        for (let px = 0; px < blockW; px++) {
+          const idx = ((by + py) * sw + (bx + px)) * 4;
+          data[idx] = r;
+          data[idx + 1] = g;
+          data[idx + 2] = b;
+          data[idx + 3] = 255;
+        }
+      }
+    }
+  }
+
+  // Put processed data back
+  sourceCtx.putImageData(imageData, 0, 0);
+
+  // Create output canvas at display resolution
+  const outputCanvas = document.createElement('canvas');
+  outputCanvas.width = Math.floor(width);
+  outputCanvas.height = Math.floor(height);
+  const outputCtx = outputCanvas.getContext('2d');
+
+  // Scale mosaic back to display size
+  outputCtx.imageSmoothingEnabled = false; // Keep pixelated look
+  outputCtx.drawImage(sourceCanvas, 0, 0, Math.floor(width), Math.floor(height));
+
+  // Create Fabric.Image from output canvas
+  const mosaicImg = new fabric.Image(outputCanvas, {
+    left: x,
+    top: y,
+    selectable: true,
+    hasControls: true,
+    hasBorders: true
+  });
+
+  return mosaicImg;
 }
 
 // ==================== Canvas Auto-Expansion ====================
